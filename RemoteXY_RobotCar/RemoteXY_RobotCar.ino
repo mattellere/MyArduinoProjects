@@ -25,7 +25,7 @@
 #include <RemoteXY.h>
 
 // RemoteXY connection settings 
-#define REMOTEXY_WIFI_SSID "MyRobot"
+#define REMOTEXY_WIFI_SSID "RobotCar"
 #define REMOTEXY_WIFI_PASSWORD "12345678"
 #define REMOTEXY_SERVER_PORT 6377
 
@@ -33,13 +33,12 @@
 // RemoteXY configurate  
 #pragma pack(push, 1)
 uint8_t RemoteXY_CONF[] =
-  { 255,5,0,0,0,58,0,10,13,1,
+  { 255,5,0,1,0,53,0,10,13,1,
   5,47,9,36,49,49,2,26,31,3,
-  132,16,5,33,9,2,26,2,1,41,
+  138,9,11,45,5,2,26,2,1,41,
   91,20,10,4,26,31,31,79,78,0,
   79,70,70,0,4,160,6,22,54,6,
-  37,26,129,0,24,-1,18,6,17,80,
-  111,119,101,114,0 };
+  37,26,66,131,5,0,53,10,38,24 };
   
 // this structure defines all the variables and events of your control interface 
 struct {
@@ -50,6 +49,9 @@ struct {
   uint8_t selectVelocity; // =0 if select position A, =1 if position B, =2 if position C, ... 
   uint8_t btnOn; // =1 if switch ON and =0 if OFF 
   int8_t sliderBalance; // =-100..100 slider position 
+
+    // output variables
+  int8_t speedMeter; // =0..100 level position 
 
     // other variable
   uint8_t connect_flag;  // =1 if wire connected, else =0 
@@ -90,30 +92,7 @@ void loop()
   // TODO you loop code
   // use the RemoteXY structure for data transfer
   
-  switch (RemoteXY.selectVelocity)
-  {
-    default:
-    case 0:
-    {
-      multiplier = 0.60;
-      break;
-    }
-    case 1:
-    {
-      multiplier = 0.75;
-      break;
-    }
-    case 2:
-    {
-      multiplier = 0.90;
-      break;
-    }
-    case 3:
-    {
-      multiplier = 1;
-      break;
-    }
-  }
+  multiplier = ((double)RemoteXY.selectVelocity / 20) + 0.5;
   
   if (RemoteXY.btnOn == 0 || RemoteXY.connect_flag == 0)
   {
@@ -139,7 +118,7 @@ void Forward(int x, int y, double speedFactor)
  digitalWrite(RightMotorDir, LOW);
  digitalWrite(LeftMotorDir, LOW);
 
- MoveWheels(x, y, speedFactor);
+ RemoteXY.speedMeter = MoveWheels(x, y, speedFactor);
 }
 
 void Reverse(int x, int y, double speedFactor)
@@ -147,10 +126,10 @@ void Reverse(int x, int y, double speedFactor)
  digitalWrite(RightMotorDir, HIGH);
  digitalWrite(LeftMotorDir, HIGH);
 
- MoveWheels(x, y, speedFactor);
+ RemoteXY.speedMeter = MoveWheels(x, y, speedFactor);
 }
 
-void MoveWheels(int x, int y, double speedFactor)
+int8_t MoveWheels(int x, int y, double speedFactor)
 {
   int rightBalance = 0;
   int leftBalance = 0;
@@ -160,9 +139,12 @@ void MoveWheels(int x, int y, double speedFactor)
   else
     rightBalance = abs(RemoteXY.sliderBalance);
   
-  int RightSpeed = map((abs(y) + (x * 0.5) - rightBalance), -50, 150, 0, 1024);
-  int LeftSpeed = map((abs(y) - (x * 0.5) - leftBalance), -50, 150, 0, 1024);
+  int RightSpeed = map((abs(y) + (x * 0.7) - rightBalance), 0, 100, 0, 1023);
+  int LeftSpeed = map((abs(y) - (x * 0.7) - leftBalance), 0, 100, 0, 1023);
  
   analogWrite(RightMotorSpeed, RightSpeed * speedFactor);
   analogWrite(LeftMotorSpeed, LeftSpeed * speedFactor);
+
+  double averageSpeed = (RightSpeed + LeftSpeed) * speedFactor / 2;
+  return map(averageSpeed, 0, 1023, 0, 100);
 }
